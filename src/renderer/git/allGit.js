@@ -1,4 +1,4 @@
-import NodeGit, { Repository, Diff, Reference } from "nodegit";
+import NodeGit, { Repository, Diff } from "nodegit";
 
 export const getRepository = async path => {
 	const repository = await Repository.open(path);
@@ -8,7 +8,9 @@ export const getRepository = async path => {
 export const getCurrentBranch = async path => {
 	const repo = await Repository.open(path);
 
-	return await repo.getCurrentBranch();
+	const currentBranch = await repo.getCurrentBranch();
+
+	return currentBranch;
 };
 
 export const getCurrentBranchName = async path => {
@@ -38,5 +40,7 @@ export const getDiff = async path => {
 			Diff.OPTION.SHOW_UNTRACKED_CONTENT | Diff.OPTION.RECURSE_UNTRACKED_DIRS
 	});
 	const patches = await diff.patches();
-	console.log(patches.map(patch => patch.newFile().path()));
+	console.log(patches);
+
+	console.log(patches.map(patch => patch.lineStats()));
 };

@@ -2,52 +2,37 @@
 	<t-flexbox flex-direction="row" :flex-grow="1">
 		<div ref="workspaceFiles" class="workspace__files">
 			<t-flexbox flex-direction="column" style="overflow: hidden;">
-				<t-flexbox
-					ref="branchName"
-					align-items="center"
-					class="workspace__branch"
-				>
+				<t-flexbox ref="branchName" align-items="center" class="workspace__branch">
 					<branchIcon />
 					<p>{{ this.$store.state.commit.activeBranch }}</p>
 				</t-flexbox>
-				<t-scrollbar
-					style="height: calc(100vh - (106px + 41px + 65px + 34px))"
-					width="100%"
-				>
-					<fileChangesSkeleton
-						v-if="this.$store.getters['commit/allFiles'].length < 1"
-					/>
+				<t-scrollbar style="height: calc(100vh - (106px + 41px + 65px + 34px))" width="100%">
+					<fileChangesSkeleton v-if="gettingFiles" />
 					<div v-else>
 						<t-flexbox
 							v-for="file in this.$store.getters['commit/allFiles']"
-							:key="file.path"
+							:key="file.path()"
 							class="workspace__changes__item"
 							align-items="center"
-							@click="previewFileChange(file)"
+							@click.native="previewFileChange(file)"
 						>
 							<input
 								v-show="getFeatureValue.commit"
 								v-model="stagedFile"
 								class="workspace__changes__item__checkbox"
 								type="checkbox"
-								:value="file.path"
+								:value="file.path()"
 							/>
-							<label :title="file.path" :for="file.path">
+							<label :title="file.path()" :for="file.path()">
 								<t-flexbox>
-									<p class="workspace__changes__item__path__name">
-										{{ filePath(file.path) }}
-									</p>
-									<p class="workspace__changes__item__path__file">
-										{{ fileName(file.path) }}
-									</p>
+									<p class="workspace__changes__item__path__name">{{ filePath(file.path()) }}</p>
+									<p class="workspace__changes__item__path__file">{{ fileName(file.path()) }}</p>
 								</t-flexbox>
 							</label>
 							<div
 								:style="'background-color: #' + fileTypeColor(file)"
 								class="workspace__changes__item__type ml-auto"
-							>
-								{{ fileType(file) }}
-							</div>
+							>{{ fileType(file) }}</div>
 						</t-flexbox>
 					</div>
 				</t-scrollbar>
@@ -60,16 +45,13 @@
 				padding-right="10px"
 			/>
 		</div>
-		<diffPreview
-			v-if="this.$store.state.workspace.filePreview.isActive"
-			:preview="fileDiffPreview"
-		/>
+		<diffPreview v-if="this.$store.state.workspace.filePreview.isActive" :preview="fileDiffPreview" />
 		<blank-slate v-else />
 	</t-flexbox>
 </template>
 
 <script>
-import statusMixin from "../../git/status";
+import { getStatus, getCurrentBranchName, getDiff } from "../../git/allGit";
 import diffMixin from "../../git/diff";
 import TScrollbar from "../../components/TLayouts/TScrollbar";
 import commitMessage from "../../components/commit/commitMessage";
@@ -99,7 +81,8 @@ export default {
 				delete: "EC746E",
 				rename: "3585de",
 				other: "E2E2E2"
-			}
+			},
+			gettingFiles: true
 		};
 	},
 	computed: {
@@ -133,63 +116,67 @@ export default {
 		}
 	},
 	mounted() {
+		console.clear()
 		this.gitStatus();
 		this.previewFileChange(this.$store.getters["commit/allFiles"][0]);
 	},
 	methods: {
-		gitStatus() {
-			statusMixin(this.currentRepository).then(result => {
-				this.$store.dispatch({
-					type: "commit/updateActiveBranch",
-					branch: result.current
-				});
-				this.$store.commit({
-					type: "commit/files",
-					files: result.files
-				});
+		async gitStatus() {
+			this.gettingFiles = true;
+
+			const nameCurrentBranch = await getCurrentBranchName(
+				this.currentRepository.path
+			);
+
+			this.$store.dispatch({
+				type: "commit/updateActiveBranch",
+				branch: nameCurrentBranch
 			});
+
+			const statuses = await getStatus(this.currentRepository.path);
+
+			await this.$store.commit({
+				type: "commit/files",
+				files: statuses
+			});
+
+			this.gettingFiles = false;
 		},
 		fileType(file) {
-			switch (file.working_dir) {
-				case "M":
-					return "M";
-				case "D":
-					return "D";
-				case "?":
-					return "A";
-				case " ":
-					switch (file.index) {
-						case "M":
-							return "M";
-						case "D":
-							return "D";
-						case "R":
-							return "R";
-						case "A":
-							return "A";
-					}
+			let letter = "";
+			if (file.isNew()) {
+				letter = "A";
+			} else if (file.isModified()) {
+				letter = "M";
+			} else if (file.isTypechange()) {
+				letter = "T";
+			} else if (file.isRenamed()) {
+				letter = "R";
+			} else if (file.isIgnored()) {
+				letter = "I";
+			} else {
+				letter = "UN"; // Unknow
 			}
+
+			return letter;
 		},
 		fileTypeColor(file) {
-			switch (file.working_dir) {
-				case "M":
-					return this.fileColors.modify;
-				case "D":
-					return this.fileColors.delete;
-				case "?":
-					return this.fileColors.new;
-				case " ":
-					switch (file.index) {
-						case "M":
-							return this.fileColors.modify;
-						case "D":
-							return this.fileColors.delete;
-						case "R":
-							return this.fileColors.rename;
-						case "A":
-							return this.fileColors.new;
-					}
+			let color = "";
+			if (file.isNew()) {
+				color = this.fileColors.new;
+			} else if (file.isModified()) {
+				color = this.fileColors.modify;
+			} else if (file.isTypechange()) {
+				color = "T";
+			} else if (file.isRenamed()) {
+				color = this.fileColors.rename;
+			} else if (file.isIgnored()) {
+				color = "#333";
+			} else {
+				color = "red"; // Unknow
 			}
+
+			return color;
 		},
 		filePath(path) {
 			if (path.lastIndexOf("/").toString() !== "-1") {
@@ -202,12 +189,12 @@ export default {
 			}
 			return path;
 		},
-		previewFileChange(file) {
+		async previewFileChange(file) {
 			this.$store.commit({
 				type: "workspace/toggleFilePreview",
 				isActive: true
 			});
-			const params = ["HEAD", "--", `:${file.path}`];
+			const params = ["HEAD", "--", `:${file.path()}`];
 			diffMixin(this.currentRepository, params).then(result => {
 				let output = result.split("\n");
 				output.splice(0, 3);
@@ -216,6 +203,8 @@ export default {
 					preview: output
 				});
 			});
+
+			await getDiff(this.currentRepository.path);
 		}
 	}
 };
