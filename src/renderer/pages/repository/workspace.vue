@@ -2,11 +2,18 @@
 	<t-flexbox flex-direction="row" :flex-grow="1">
 		<div ref="workspaceFiles" class="workspace__files">
 			<t-flexbox flex-direction="column" style="overflow: hidden;">
-				<t-flexbox ref="branchName" align-items="center" class="workspace__branch">
+				<t-flexbox
+					ref="branchName"
+					align-items="center"
+					class="workspace__branch"
+				>
 					<branchIcon />
 					<p>{{ this.$store.state.commit.activeBranch }}</p>
 				</t-flexbox>
-				<t-scrollbar style="height: calc(100vh - (106px + 41px + 65px + 34px))" width="100%">
+				<t-scrollbar
+					style="height: calc(100vh - (106px + 41px + 65px + 34px))"
+					width="100%"
+				>
 					<fileChangesSkeleton v-if="gettingFiles" />
 					<div v-else>
 						<t-flexbox
@@ -25,14 +32,20 @@
 							/>
 							<label :title="file.path()" :for="file.path()">
 								<t-flexbox>
-									<p class="workspace__changes__item__path__name">{{ filePath(file.path()) }}</p>
-									<p class="workspace__changes__item__path__file">{{ fileName(file.path()) }}</p>
+									<p class="workspace__changes__item__path__name">
+										{{ filePath(file.path()) }}
+									</p>
+									<p class="workspace__changes__item__path__file">
+										{{ fileName(file.path()) }}
+									</p>
 								</t-flexbox>
 							</label>
 							<div
 								:style="'background-color: #' + fileTypeColor(file)"
 								class="workspace__changes__item__type ml-auto"
-							>{{ fileType(file) }}</div>
+							>
+								{{ fileType(file) }}
+							</div>
 						</t-flexbox>
 					</div>
 				</t-scrollbar>
@@ -45,7 +58,10 @@
 				padding-right="10px"
 			/>
 		</div>
-		<diffPreview v-if="this.$store.state.workspace.filePreview.isActive" :preview="fileDiffPreview" />
+		<diffPreview
+			v-if="this.$store.state.workspace.filePreview.isActive"
+			:preview="fileDiffPreview"
+		/>
 		<blank-slate v-else />
 	</t-flexbox>
 </template>
@@ -115,9 +131,9 @@ export default {
 			);
 		}
 	},
-	mounted() {
-		console.clear()
-		this.gitStatus();
+	async mounted() {
+		console.clear();
+		await this.gitStatus();
 		this.previewFileChange(this.$store.getters["commit/allFiles"][0]);
 	},
 	methods: {
@@ -190,6 +206,10 @@ export default {
 			return path;
 		},
 		async previewFileChange(file) {
+			if (file) {
+				await getDiff(this.currentRepository.path, file.path());
+			}
+
 			this.$store.commit({
 				type: "workspace/toggleFilePreview",
 				isActive: true
@@ -203,8 +223,6 @@ export default {
 					preview: output
 				});
 			});
-
-			await getDiff(this.currentRepository.path);
 		}
 	}
 };

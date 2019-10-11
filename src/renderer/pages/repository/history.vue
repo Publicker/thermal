@@ -43,13 +43,13 @@
 </template>
 
 <script>
+import { gitLog } from "../../git/allGit";
 import commitHistoryItem from "../../components/commit/commitHistoryItem";
 import commitInformation from "../../components/commit/commitInformation";
 import diffPreview from "../../components/diff/diffPreview";
 import fileIcon from "../../components/icon/file";
 import TScrollbar from "../../components/TLayouts/TScrollbar";
 import VueScrollbar from "vue2-scrollbar";
-import gitLog from "../../git/log";
 import logSkeleton from "../../components/skeleton/logs";
 import BlankSlate from "../../components/BlankSlate";
 import TFlexbox from "../../components/TLayouts/TFlexbox";
@@ -87,11 +87,10 @@ export default {
 		this.gitLog();
 	},
 	methods: {
-		gitLog() {
-			gitLog(this.currentRepository).then(result => {
-				this.$store.commit("history/updateLogs", {
-					logs: result
-				});
+		async gitLog() {
+			const logs = await gitLog(this.currentRepository.path);
+			this.$store.commit("history/updateLogs", {
+				logs: logs
 			});
 		},
 		toggleCommitDetail() {
